@@ -1,6 +1,3 @@
-Here is a comprehensive `README.md` file for your project:
-
-```markdown
 # AI Desktop and Browser Automation Tool
 
 ## Overview
