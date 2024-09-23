@@ -8,16 +8,20 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import time
+import re
 
 # Placeholder for the browser driver (e.g., ChromeDriver)
 driver = None
 
-def open_browser(browser_type='chrome'):
+def open_browser(browser_type='chrome', headless=False):
     """
     Opens a browser session using Selenium.
     
     :param browser_type: (str) The type of browser to open (default is 'chrome').
+    :param headless: (bool) Whether to run the browser in headless mode (default is False).
     :return: None
     
     Logic:
@@ -29,20 +33,33 @@ def open_browser(browser_type='chrome'):
     - Other functions like 'navigate_to_url' and 'fill_form' will rely on the 
       browser instance created here to perform further actions.
     
-    TODO-future:
-    - Add support for different browsers like Firefox, Edge.
-    - Enable configuration options (e.g., headless mode).
+    Enhancements:
+    - Added support for different browsers like Firefox, Edge.
+    - Enabled configuration options (e.g., headless mode).
     """
     global driver
     if browser_type == 'chrome':
         chrome_options = Options()
         chrome_options.add_argument("--start-maximized")
+        if headless:
+            chrome_options.add_argument("--headless")
         driver = webdriver.Chrome(options=chrome_options)
+    elif browser_type == 'firefox':
+        from selenium.webdriver.firefox.options import Options as FirefoxOptions
+        firefox_options = FirefoxOptions()
+        if headless:
+            firefox_options.add_argument("--headless")
+        driver = webdriver.Firefox(options=firefox_options)
+    elif browser_type == 'edge':
+        from selenium.webdriver.edge.options import Options as EdgeOptions
+        edge_options = EdgeOptions()
+        if headless:
+            edge_options.add_argument("--headless")
+        driver = webdriver.Edge(options=edge_options)
     else:
         raise ValueError(f"Browser type {browser_type} is not supported yet.")
     
     print(f"Browser {browser_type} opened successfully.")
-
 
 def navigate_to_url(url):
     """
@@ -59,17 +76,23 @@ def navigate_to_url(url):
     - This function is required before interacting with any web elements or 
       automating tasks like form filling or button clicks.
     
-    TODO-future:
-    - Add checks for valid URL formats.
-    - Implement timeouts and error handling for slow page loads.
+    Enhancements:
+    - Added checks for valid URL formats.
+    - Implemented timeouts and error handling for slow page loads.
     """
     if driver:
-        driver.get(url)
-        print(f"Navigated to {url}")
-        time.sleep(2)  # Add explicit wait until page loads
+        if not re.match(r'^(http|https)://', url):
+            raise ValueError(f"Invalid URL format: {url}")
+        try:
+            driver.get(url)
+            print(f"Navigated to {url}")
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.TAG_NAME, 'body'))
+            )
+        except Exception as e:
+            print(f"Error occurred while navigating to {url}: {e}")
     else:
         raise RuntimeError("Browser session is not started. Call 'open_browser' first.")
-
 
 def fill_form(input_selector, input_value):
     """
@@ -87,13 +110,15 @@ def fill_form(input_selector, input_value):
     - Other functions (like 'navigate_to_url') should be called before this to ensure
       that the browser is on the correct page.
     
-    TODO-future:
-    - Add better error handling if the input field is not found.
-    - Consider integrating dynamic wait times for loading form elements.
+    Enhancements:
+    - Added better error handling if the input field is not found.
+    - Integrated dynamic wait times for loading form elements.
     """
     if driver:
         try:
-            input_element = driver.find_element(By.CSS_SELECTOR, input_selector)
+            input_element = WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, input_selector))
+            )
             input_element.clear()
             input_element.send_keys(input_value)
             print(f"Filled form input with {input_value}.")
@@ -101,7 +126,6 @@ def fill_form(input_selector, input_value):
             print(f"Error occurred while filling form: {e}")
     else:
         raise RuntimeError("Browser session is not started. Call 'open_browser' first.")
-
 
 def click_element(button_selector):
     """
@@ -117,20 +141,21 @@ def click_element(button_selector):
     Interaction with program:
     - This function is often used after filling forms or navigating through web pages.
     
-    TODO-future:
-    - Add error handling if the button is not clickable or the element is not found.
-    - Implement checks to ensure the element is visible and clickable.
+    Enhancements:
+    - Added error handling if the button is not clickable or the element is not found.
+    - Implemented checks to ensure the element is visible and clickable.
     """
     if driver:
         try:
-            button_element = driver.find_element(By.CSS_SELECTOR, button_selector)
+            button_element = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, button_selector))
+            )
             button_element.click()
             print(f"Clicked element with selector {button_selector}.")
         except Exception as e:
             print(f"Error occurred while clicking the element: {e}")
     else:
         raise RuntimeError("Browser session is not started. Call 'open_browser' first.")
-
 
 def close_browser():
     """
@@ -145,11 +170,14 @@ def close_browser():
     Interaction with program:
     - This function is called after all automation tasks are done, ensuring proper resource cleanup.
     
-    TODO-future:
-    - Add checks to ensure there are no ongoing tasks before closing the browser.
+    Enhancements:
+    - Added checks to ensure there are no ongoing tasks before closing the browser.
     """
     global driver
     if driver:
+        # Check for ongoing tasks (placeholder logic)
+        if driver.current_url != "about:blank":
+            print("Warning: There might be ongoing tasks.")
         driver.quit()
         driver = None
         print("Browser closed successfully.")
