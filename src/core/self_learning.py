@@ -1,106 +1,103 @@
-# self_learning.py
-"""
-This module handles the AI's self-learning capabilities, allowing it to improve and adapt based on 
-the success or failure of tasks. It stores outcomes of tasks, analyzes failures, and retries 
-them with adjustments based on past results.
-"""
-
+import os
 import json
+import logging
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+import numpy as np
 
-learning_data_file = 'data/task_patterns.json'  # Store task patterns and outcomes here
+# Set up logging for debugging and tracking purposes
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
-def store_task_outcome(task, success):
+class SelfLearningAI:
     """
-    Stores the outcome of a task in a local data file. Successes and failures are recorded
-    to track patterns and improve future execution.
-    
-    Logic:
-    - Store the task description, success/failure status, and relevant metadata (e.g., time, retry attempts).
-    - Append the outcome to the learning data file.
-
-    Interacts with:
-    - The task executor, which provides task outcomes.
-    - Other core modules for cross-referencing task patterns.
-    
-    TODO:
-    - Add more complex data analysis for determining task improvements.
-    - Implement long-term storage or cloud syncing for task patterns.
+    This class implements a basic self-learning AI for automating tasks based on past experiences. 
+    It uses machine learning to predict the best course of action when attempting to automate a task.
     """
-    try:
-        with open(learning_data_file, 'r+') as file:
-            data = json.load(file)
-            data.append({
-                'task': task,
-                'success': success,
-                'metadata': {
-                    'retry_count': task.get('retry_count', 0),
-                    'timestamp': task.get('timestamp', None)
-                }
-            })
-            file.seek(0)
-            json.dump(data, file)
-    except FileNotFoundError:
-        with open(learning_data_file, 'w') as file:
-            json.dump([{
-                'task': task,
-                'success': success,
-                'metadata': {
-                    'retry_count': task.get('retry_count', 0),
-                    'timestamp': task.get('timestamp', None)
-                }
-            }], file)
 
+    def __init__(self):
+        # Initialize class variables and load historical task data
+        self.model = RandomForestClassifier()  # TODO: Consider using a more advanced model like XGBoost or SVM if necessary
+        self.task_data_file = 'data/models/task_patterns.json'
+        self.model_file = 'data/models/learning_model.pkl'
+        self.task_data = self.load_task_data()
+        self.X, self.y = self.prepare_data(self.task_data)
 
-def analyze_failed_task(task):
-    """
-    Analyzes the reason for a failed task and suggests adjustments for future attempts.
-    
-    Logic:
-    - Review the task pattern history and identify common causes for failure (e.g., missing files, misclicks).
-    - Suggest a new approach or adjustment for retrying the task.
+    def load_task_data(self):
+        """
+        Loads historical task data from a JSON file. This data contains input-output pairs for previous automation tasks.
+        If no data exists, returns an empty dictionary.
+        TODO: Add error handling for missing or corrupt task data files.
+        """
+        if os.path.exists(self.task_data_file):
+            with open(self.task_data_file, 'r') as file:
+                logging.info(f"Loading task data from {self.task_data_file}")
+                return json.load(file)
+        else:
+            logging.warning(f"Task data file {self.task_data_file} not found. Initializing empty data set.")
+            return {}
 
-    Interacts with:
-    - The task executor, providing it with an adjusted task for retry.
-    - The error handler, which may trigger this function after repeated failures.
-    
-    TODO:
-    - Use machine learning models to automate error pattern recognition.
-    - Add more sophisticated pattern matching for task adjustments.
-    """
-    # Placeholder logic for failure analysis
-    if task.get('retry_count', 0) < 3:
-        print(f"Retrying task {task['name']} with minor adjustments.")
-        task['retry_count'] += 1
-        return task  # Adjusted task for retrying
-    else:
-        print(f"Task {task['name']} failed after multiple attempts.")
-        return None  # Stop retrying after multiple failures
+    def prepare_data(self, task_data):
+        """
+        Prepares the data for model training by separating input features (X) from output labels (y).
+        TODO: Improve feature extraction by incorporating more contextual data, such as time of day, system state, etc.
+        """
+        X = []
+        y = []
+        for task in task_data:
+            X.append(task['features'])  # TODO: Ensure feature extraction is robust and contextually relevant
+            y.append(task['label'])
+        return np.array(X), np.array(y)
 
+    def train_model(self):
+        """
+        Trains the self-learning model using the historical task data.
+        TODO: Implement cross-validation to ensure the model generalizes well to new tasks.
+        """
+        if len(self.X) == 0 or len(self.y) == 0:
+            logging.error("No data available to train the model.")
+            return
 
-def retry_failed_task(task):
-    """
-    Retries a failed task with adjustments. It either modifies task parameters based on analysis or 
-tries a new approach.
-    
-    Logic:
-    - Retrieve task adjustments from the analyze_failed_task function.
-    - Execute the task again, or log it as a failure if retries are exhausted.
+        X_train, X_test, y_train, y_test = train_test_split(self.X, self.y, test_size=0.2, random_state=42)
+        logging.info("Training the self-learning model.")
+        self.model.fit(X_train, y_train)
 
-    Interacts with:
-    - The task executor, retrying the task with adjustments.
-    - The self-learning system, updating it with each retry attempt's outcome.
+        # Evaluate model performance
+        accuracy = self.model.score(X_test, y_test)
+        logging.info(f"Model trained with an accuracy of {accuracy * 100:.2f}%")
+        # TODO: Store the model performance and possibly retrain with new data after certain intervals.
 
-    TODO:
-    - Implement a retry strategy that adjusts based on historical outcomes.
-    - Add support for dynamically modifying task parameters for optimal retries.
-    """
-    adjusted_task = analyze_failed_task(task)
-    if adjusted_task:
-        # Retry the task with the adjusted parameters
-        print(f"Retrying task {adjusted_task['name']}...")
-        # TODO: Execute task using the task_executor (pending integration with task_executor.py)
-        # Placeholder for task execution logic
-        success = True  # This should be the result of the task execution
-        store_task_outcome(adjusted_task, success)
-    else:
-        print(f"Failed to retry task {task['name']} after multiple attempts.")
+    def predict(self, task_features):
+        """
+        Predicts the outcome of a task given its features using the trained model.
+        TODO: Implement confidence thresholds to reject low-confidence predictions and request human input.
+        """
+        if self.model is None:
+            logging.error("Model is not trained. Train the model before making predictions.")
+            return None
+
+        prediction = self.model.predict([task_features])
+        logging.info(f"Predicted outcome for task with features {task_features}: {prediction}")
+        return prediction
+
+    def save_model(self):
+        """
+        Saves the trained model to a file for future use.
+        TODO: Implement model versioning to avoid overwriting previous models and track improvements.
+        """
+        import pickle
+        with open(self.model_file, 'wb') as file:
+            logging.info(f"Saving model to {self.model_file}")
+            pickle.dump(self.model, file)
+
+    def load_model(self):
+        """
+        Loads a previously trained model from a file.
+        TODO: Add error handling for file not found or corrupt model files.
+        """
+        import pickle
+        if os.path.exists(self.model_file):
+            logging.info(f"Loading model from {self.model_file}")
+            with open(self.model_file, 'rb') as file:
+                self.model = pickle.load(file)
+        else:
+            logging.warning(f"Model file {self.model_file} not found. Please train the model first.")
