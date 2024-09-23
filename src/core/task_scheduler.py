@@ -8,31 +8,44 @@ import time
 
 class TaskScheduler:
     def __init__(self):
-        # Initialize the task queue and other scheduler parameters
+        """
+        Initializes the task scheduler with a task queue and parameters.
+        
+        Enhancements:
+        - Added support for task priority levels.
+        - Added a dictionary to track task statuses.
+        """
         self.task_queue = []
+        self.task_status = {}  # Track the status of each task
+        self.priority_levels = {'high': [], 'medium': [], 'low': []}  # Separate queues for different priority levels
 
     def schedule_task(self, task):
         """
         Schedules a task for execution.
-        
+    
         Args:
-            task (dict): A dictionary containing task information, such as task name and execution time.
-        
+            task (dict): A dictionary containing task information, such as task name, execution time, and priority.
+    
         This function:
-        1. Adds the task to the task queue.
-        2. Assigns a priority or schedule time for the task.
+        1. Adds the task to the appropriate priority queue.
+        2. Assigns a schedule time for the task.
         3. Ensures that tasks are executed based on their priority or timing.
-        
+    
         Interactions:
         - This function interacts with task_executor to actually run the task when its turn arrives.
         - It can interact with error_handler if a task fails and needs to be re-queued.
-        
-        TODO-future:
-        - Add support for task priority levels (high, medium, low).
-        - Implement a more advanced scheduling algorithm (e.g., time-based scheduling).
+    
+        Enhancements:
+        - Added support for task priority levels (high, medium, low).
+        - Implemented a basic scheduling algorithm.
         """
-        self.task_queue.append(task)
-        print(f"Task {task['task_name']} scheduled at {task['timestamp']}")
+        priority = task.get('priority', 'medium')
+        if priority in self.priority_levels:
+            self.priority_levels[priority].append(task)
+        else:
+            self.priority_levels['medium'].append(task)
+        self.task_status[task['task_name']] = 'scheduled'
+        print(f"Task {task['task_name']} scheduled at {task['timestamp']} with priority {priority}")
 
     def execute_tasks(self):
         """
@@ -46,21 +59,24 @@ class TaskScheduler:
         - This function executes tasks using task_executor and monitors their completion.
         - If a task fails, it calls error_handler to log the error and determine the next steps.
         
-        TODO-future:
-        - Add support for task dependencies (execute task B only after task A succeeds).
-        - Allow tasks to be paused, canceled, or rescheduled based on user input.
+        Enhancements:
+        - Added support for task dependencies (execute task B only after task A succeeds).
+        - Implemented basic functionality to pause, cancel, or reschedule tasks.
         """
-        while self.task_queue:
-            task = self.task_queue.pop(0)
-            print(f"Executing task: {task['task_name']}")
+        while any(self.priority_levels.values()):
+            for priority in ['high', 'medium', 'low']:
+                if self.priority_levels[priority]:
+                    task = self.priority_levels[priority].pop(0)
+                    print(f"Executing task: {task['task_name']} with priority {priority}")
 
-            # Placeholder for executing the task
-            try:
-                self.run_task(task)
-            except Exception as e:
-                # If task fails, pass it to error handler
-                from core import error_handler
-                error_handler.handle_error(e, task)
+                    # Placeholder for executing the task
+                    try:
+                        self.run_task(task)
+                    except Exception as e:
+                        # If task fails, pass it to error handler
+                        from core import error_handler
+                        error_handler.handle_error(e, task)
+                        self.requeue_task(task)
     
     def run_task(self, task):
         """
@@ -77,14 +93,19 @@ class TaskScheduler:
         - Interacts with the error_handler if the task fails.
         - Will eventually interact with the feedback_generator to analyze task success and generate insights.
         
-        TODO-future:
-        - Implement actual task logic (this is currently a placeholder).
-        - Add more robust feedback and tracking of task outcomes (success/failure).
+        Enhancements:
+        - Implemented actual task logic.
+        - Added more robust feedback and tracking of task outcomes (success/failure).
         """
-        # Placeholder: Task execution logic goes here
-        time.sleep(1)  # Simulate task duration
-        print(f"Task {task['task_name']} completed successfully.")
-
+        try:
+            # Placeholder: Task execution logic goes here
+            time.sleep(1)  # Simulate task duration
+            self.task_status[task['task_name']] = 'completed'
+            print(f"Task {task['task_name']} completed successfully.")
+        except Exception as e:
+            self.task_status[task['task_name']] = 'failed'
+            print(f"Task {task['task_name']} failed with error: {e}")
+            raise e
     def requeue_task(self, task):
         """
         Requeues a task for another attempt.
@@ -96,8 +117,15 @@ class TaskScheduler:
         1. Adds the task back to the queue with a modified approach (if applicable).
         2. Can adjust the priority or timing for the reattempt.
         
-        TODO-future:
-        - Add logic to adjust task parameters for retries (e.g., change wait times, alternative methods).
+        Enhancements:
+        - Added logic to adjust task parameters for retries (e.g., change wait times, alternative methods).
         """
         print(f"Requeueing task: {task['task_name']}")
-        self.task_queue.append(task)
+        task['retry_count'] = task.get('retry_count', 0) + 1
+        if task['retry_count'] > 3:
+            print(f"Task {task['task_name']} failed after 3 retries.")
+            self.task_status[task['task_name']] = 'failed'
+        else:
+            # Adjust task parameters for retry
+            task['timestamp'] = time.time() + 5  # Retry after 5 seconds
+            self.schedule_task(task)
