@@ -1,82 +1,94 @@
-# feedback_generator.py
 """
-This module analyzes user activity and generates productivity insights.
-It looks for patterns in the activity logs, identifies inefficiencies,
-and suggests optimizations. It also serves as a recommendation engine
-that the user can interact with in real-time.
+FeedbackGenerator is responsible for analyzing user activity data, generating insights, 
+and providing productivity tips or automation recommendations. This module is designed 
+to adapt over time based on the user's behavior.
+
+The system should be able to:
+1. Analyze activity patterns (e.g., repetitive tasks, frequent app usage)
+2. Provide suggestions for automation based on observed patterns
+3. Suggest productivity improvements (e.g., frequent task bottlenecks)
+
+TODO: Implement a self-learning model that enhances feedback suggestions over time.
 """
 
-def analyze_user_activity(activity_log):
-    """
-    Analyzes the collected user activity data to find inefficiencies.
-    
-    - Logic: 
-      1. Parse the activity log and group activities by type (e.g., app usage, file management, web browsing).
-      2. Identify patterns (e.g., repetitive actions, frequent app switches).
-      3. Detect potential bottlenecks (e.g., prolonged idle times, repeated errors).
-      4. Generate insights such as "You are switching between apps frequently, consider using multi-window mode."
-    
-    - Program Interaction:
-      This function interacts with the activity_monitor.py module by receiving its logs
-      and processing the data. Insights will be passed to the task_scheduler.py module to trigger
-      any potential task automation based on the analysis.
-    
-    - TODO-future:
-      - Implement machine learning to improve pattern detection based on user history.
-      - Add a feedback loop to allow the user to reject suggestions, improving relevance over time.
-    """
-    # Placeholder: Implement logic for parsing and analyzing the activity log.
-    insights = []
-    # TODO: Analyze activity_log to identify patterns and inefficiencies.
-    return insights
+import os
+import logging
 
+# TODO: Configure logger with custom formatting for better traceability.
+logging.basicConfig(filename='feedback_log.txt', level=logging.INFO)
 
-def generate_productivity_report(activity_log):
-    """
-    Generates a detailed productivity report based on user activity.
-    
-    - Logic:
-      1. Summarize the activities performed by the user during a session.
-      2. Provide metrics such as time spent per app, number of tasks completed, etc.
-      3. Include recommendations for improving productivity (e.g., "Try using X app to streamline Y process").
-    
-    - Program Interaction:
-      Works in tandem with analyze_user_activity() to provide meaningful insights 
-      directly to the user. The report may trigger alerts or be sent as a message 
-      for the user to review via the GUI automation system.
-    
-    - TODO-future:
-      - Integrate with a dashboard UI for real-time viewing of reports.
-      - Add options to automatically trigger task automations based on certain recommendations.
-    """
-    # Placeholder: Generate a report with mock data.
-    report = {
-        "total_time_active": "5 hours",
-        "frequent_apps": ["App A", "App B"],
-        "recommendations": ["Consider using App X for better efficiency in handling Task Y"]
-    }
-    # TODO: Use actual analysis data to generate detailed productivity reports.
-    return report
+class FeedbackGenerator:
+    def __init__(self, activity_data):
+        """
+        Initializes the FeedbackGenerator with the user's activity data.
+        The data is expected to contain app usage, keystrokes, and browser activity.
 
+        :param activity_data: List of dictionaries containing user activity
+        Example: [{'app': 'Chrome', 'keystrokes': 120, 'time_spent': '2h'}]
 
-def provide_real_time_insight(activity_snapshot):
-    """
-    Provides real-time feedback based on a snapshot of user activity.
-    
-    - Logic:
-      1. Monitor user activity in real-time and compare it with historical data.
-      2. Suggest immediate tips to improve current workflows (e.g., "You’ve been on the same screen for 10 minutes; do you need help?").
-    
-    - Program Interaction:
-      Uses data directly from the activity_monitor.py module for real-time feedback.
-      This function communicates directly with the task_scheduler to trigger automation 
-      if a user agrees to act on the suggestions.
-    
-    - TODO-future:
-      - Refine the feedback algorithm to make it context-aware (e.g., different suggestions for work-related vs leisure activities).
-      - Implement a confirmation system where the user can accept or reject the suggestion.
-    """
-    # Placeholder: Provide a mock real-time insight.
-    insight = "You’ve been idle for 15 minutes, consider taking a break or switching tasks."
-    # TODO: Implement logic to provide dynamic real-time insights.
-    return insight
+        TODO: Validate activity_data input for any corrupt or incomplete entries.
+        """
+        self.activity_data = activity_data
+        self.feedback = []
+
+        # TODO: Add data normalization for more consistent analysis
+        logging.info("Initialized FeedbackGenerator with user activity data.")
+
+    def generate_insights(self):
+        """
+        Analyzes the activity data and generates feedback based on:
+        - Repetitive actions (suggest automation)
+        - Time-consuming tasks (suggest optimization)
+        - Frequent browser and app usage (suggest focus improvement)
+        
+        TODO: Refine the algorithm to account for task priority and user preferences.
+        """
+        logging.info("Starting insight generation.")
+        
+        for activity in self.activity_data:
+            # Check for repetitive tasks
+            if activity.get('repetitions', 0) > 5:
+                insight = f"Consider automating repetitive task in {activity['app']}."
+                self.feedback.append(insight)
+                logging.info(f"Suggested automation for {activity['app']}.")
+
+            # Check for time spent on non-productive apps
+            if activity['app'] in ['YouTube', 'Social Media'] and activity['time_spent'] > '1h':
+                insight = f"High time spent on {activity['app']}. Consider reducing usage."
+                self.feedback.append(insight)
+                logging.info(f"Suggested reducing time on {activity['app']}.")
+
+            # Analyze browser usage patterns
+            if 'browser_activity' in activity:
+                insight = f"Browsed {activity['browser_activity']} extensively. Try focusing on fewer tabs."
+                self.feedback.append(insight)
+                logging.info(f"Suggested reducing browser tabs for {activity['app']}.")
+
+        # TODO: Implement machine learning for personalized productivity tips
+        logging.info("Insight generation complete.")
+
+    def get_feedback(self):
+        """
+        Returns the generated feedback to the user. This feedback will later be displayed 
+        to help users optimize their workflow.
+        
+        :return: List of feedback strings
+        """
+        if not self.feedback:
+            self.generate_insights()
+        return self.feedback
+
+    def save_feedback_to_file(self):
+        """
+        Saves the generated feedback to a log file for further analysis or record-keeping.
+        
+        TODO: Add functionality to export feedback as a PDF or send via email for professional settings.
+        """
+        feedback_file = 'feedback_log.txt'
+        with open(feedback_file, 'a') as file:
+            for entry in self.feedback:
+                file.write(f"{entry}\n")
+        logging.info(f"Feedback saved to {feedback_file}.")
+
+    # TODO: Implement a function to adjust feedback based on real-time user corrections
+    # (e.g., if a user ignores a suggestion multiple times, reduce its priority)
