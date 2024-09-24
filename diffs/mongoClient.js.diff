@@ -1,0 +1,39 @@
+--- src/infrastructure/database/mongoClient.js
++++ src/infrastructure/database/mongoClient.js_refactored
+@@ -1,20 +1,24 @@
+ const { MongoClient } = require('mongodb');
+ 
+ /**
+- * Initializes and returns a MongoDB client instance.
++ * Initializes and returns a MongoDB client instance with connection pooling and retries.
+  * @returns {MongoClient} - The MongoDB client instance.
+  */
+ async function initializeMongoClient() {
+-  // Placeholder logic for initializing MongoDB client
+-  // 1. Read database configuration from environment variables
+-  // 2. Create a new MongoClient instance
+-  // 3. Connect to the MongoDB server
+-  // 4. Return the connected client instance
++  const options = {
++    poolSize: 10, // Connection pooling for scalability
++    reconnectTries: 5, // Retry on connection failure
++    useNewUrlParser: true,
++    useUnifiedTopology: true,
++  };
+ 
+-  // Enhancement suggestions:
+-  // 1. Implement connection pooling
+-  // 2. Add retry logic for connection failures
+-  // 3. Use a configuration management tool for secure credentials
+-  // 4. Monitor database performance metrics
+-  // 5. Implement database sharding for scalability
++  try {
++    const client = new MongoClient(process.env.DB_URI, options);
++    await client.connect();
++    console.log("MongoDB connected");
++    return client;
++  } catch (error) {
++    console.error("Failed to connect to MongoDB:", error);
++    throw new Error('MongoDB Connection Failed');
++  }
+ }
